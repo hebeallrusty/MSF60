@@ -163,7 +163,7 @@ while True:
     
     hr = sum( x * y for x,y in zip(A[38:44],HR))
     
-    mn = sum( x * y for x,y in zip(A[44:51],DY))
+    mn = sum( x * y for x,y in zip(A[44:51],MN))
     
     print(DOY[wk],"",dy,"/",mt,"/",yr," ",hr,":",mn)
               

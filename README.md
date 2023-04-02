@@ -1,5 +1,7 @@
 # MSF60 decoder
 
+*still work in progress*
+
 Simple script to decode the MSF60 signal that is broadcast from Anthorn, England.
 
 Written with Micropython in mind, however `utime` can be swapped for `time` and the code *should* still function 

@@ -22,6 +22,8 @@ MN = [40,20,10,8,4,2,1] # Minute
 # separate representation of the day of the week in the same order as the signal representation
 DOY = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"]
 
+DAYS_IN_MONTH = [31,28,31,30,31,30,31,31,30,31,30,31]
+
 
 def Decode_MSF(ti,sw):
     # ti is the pulse of the MSF60 signal
@@ -33,20 +35,10 @@ def Decode_MSF(ti,sw):
     # representation of the second mark
     SEC = [0,0,0,0,0,1]
 
-    # set up variables for each calculation of the BCD with the signal received
-    yr = 0
-    mt = 0
-    dy = 0
-    wk = 0
-    hr = 0
-    mn = 0
-
     
     # counters to keep track of where we are
-    
-    #n = 0
-    m = 0 # for elapsed seconds
-    #s = 0 # for sync
+    m = 0 # for elapsed samples in each sync period of the second
+
     
     # for Bit A and Bit B of the signal
     A = []
@@ -140,22 +132,25 @@ def Decode_MSF(ti,sw):
         # reset the counter for sync
         m = 0
 
-        
+        # get the next sample and add it to Bit A's list
         utime.sleep(0.1)
         
         A.append(int(ti.value()))
         print("A is: ",A[-1])
         
+        # get the next sample and add it to Bit B's list
         utime.sleep(0.1)
         
         B.append(int(ti.value()))
+        
+        # reset the buffer to start again
         unit = []
 
 
     # after breaking out the loop we are at 60th second, so record wall time so that we can then return the seconds after the rest of the calculations
     # this is so that we aren't skewed by how long the calcs take as we have now hit another minute marker
     
-    marker_time_1 = utime.ticks_ms()
+    #marker_time_1 = utime.ticks_ms()
     
     
     #print(A)
@@ -163,9 +158,15 @@ def Decode_MSF(ti,sw):
     #print(B)
     
     # results need to be validated to see if they are reliable, offload all the calcs to the validation function for efficiency
-    return(validate_MSF(A,B))
+    Received_Time = validate_MSF(A,B)
     
-    
+    if Received_Time[0] == True:
+        # add in the time it's taken to validate
+        #Final_Time = Received_Time[1].append(utime.ticks_diff(utime.ticks_ms(),marker_time_1)/1000)
+        #print(utime.ticks_diff(utime.ticks_ms(),marker_time_1)/1000)
+        return([Received_Time[0],Received_Time[1],Received_Time[2]])
+    else:
+        return([Received_Time[0],Received_Time[1]])
     
 
 
@@ -180,6 +181,13 @@ def validate_MSF(A,B):
     # r2: 55B and 25A - 35A ditto
     # r3: 56B and 36A - 38A ditto
     # r4: 57B and 39A - 51A ditto
+    # r5: months are less than or equal to 12
+    # r6: the day is not greater that the maximum number of days in that month
+    # r7: days of the week is valid i.e saturday is day 6; day 7 is not valid - could check the day of the week is correct for the date?
+    # r8: the hour is less than 24; i.e. 23:59 is the maximum time of the day
+    # r9: the minute is less than 60
+    
+    VALIDATION_FAILED = "Signal did not pass validation"
     
     # use the property that modulo division by 2 will leave a 1 which in this case is a pass for the above rule
     
@@ -189,10 +197,13 @@ def validate_MSF(A,B):
     r3 = (B[55] + sum(A[35:38])) % 2
     r4 = (B[56] + sum(A[38:51])) % 2
     
+    if bool(r1 & r2 & r3 & r4) == False:
+        return(False,VALIDATION_FAILED)
+    
     #print(r1,r2,r3,r4)
     
     # calculate the date and time function which is just the recieved Bit A's slice multiplied by the BCD defs above and added
-    yr = sum( x * y for x,y in zip(A[16:24],YR))
+    yr = sum( x * y for x,y in zip(A[16:24],YR)) + 2000 # post 2000 dates only
     
     mt = sum( x * y for x,y in zip(A[24:29],MT))
     
@@ -204,7 +215,44 @@ def validate_MSF(A,B):
     
     mn = sum( x * y for x,y in zip(A[44:51],MN))
     
+    print([yr,mt,dy,wk,hr,mn,DOY[wk],B[57]])
+    
     # date and time needs to be validated against correct values i.e the month is less than or equal to 12; the days of the month stack up etc
+    # only 12 months
+    r5 = (mt <= 12)
+    #print("r5:",r5)
+    
+    if r5 == False:
+
+        return(False,VALIDATION_FAILED)
     
     
-    return([bool(r1 & r2 & r3 & r4),[yr,mt,dy,wk,hr,mn,DOY[wk],B[57]]])
+    # month has correct number of days
+    if mt == 2:
+        # check leap year or not and add the result to 28. If leap-year, result of the logic statement will be 1; therefore will check if there are 29 days in Feb
+        r6 = (dy <= 28 + ( yr % 4 == 0 and (yr % 100 != 0 or yr % 400 == 0)))
+               
+    else: # rest of the months is a straight check on the correct number of days
+        r6 = (dy <= DAYS_IN_MONTH[mt + 1])
+    
+    #print("r6:",r6)
+    
+    # check day of week is 6 or less - 0 is Sunday; 6 is Saturday
+    r7 = (wk <= 6)
+    #print("r7:",r7)
+    
+    # check hours are correct and less than 24
+    r8 = (hr < 24)
+    #print("r8:",r8)    
+    
+    # check minutes are less than 60
+    r9 = (mn < 60)
+    #print("r9:",r9)    
+    
+    if bool(r6 & r7 & r8 & r9) == False:
+        return(False,VALIDATION_FAILED)
+    
+    
+    # if we get here, then the signal must have passed all the tests and likely be valid
+    # B[57] denotes if times is GMT (0) or BST (1)
+    return([True,[yr,mt,dy,wk,hr,mn,DOY[wk]],B[57]])

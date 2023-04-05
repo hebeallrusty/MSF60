@@ -86,6 +86,8 @@ def Decode_MSF(ti,sw):
     
     unit = unit[5:]
     
+    #marker_time_1 = utime.ticks_ms()
+    
     # unit should then be [0,0,0,0,0] which is the end of a second
     
     # check for the first [1] of a second which will be [0,0,0,0,0,1]
@@ -254,5 +256,5 @@ def validate_MSF(A,B):
     
     
     # if we get here, then the signal must have passed all the tests and likely be valid
-    # B[57] denotes if times is GMT (0) or BST (1)
-    return([True,[yr,mt,dy,wk,hr,mn,DOY[wk]],B[57]])
+    # B[57] denotes if times is GMT (0) or BST (1); return a tuple that can be used for setting the time; Give separate extended tuple with GMT / BST and the named day of the week
+    return([True,(yr,mt,dy,wk,hr,mn,0,0),(B[57],DOY[wk])])

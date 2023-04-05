@@ -15,7 +15,7 @@ print(TheTime)
 if TheTime[0] == True:
     # set the Pico's RTC based on the recieved signal's time
     rtc = machine.RTC()
-    rtc.datetime((TheTime[1][0], TheTime[1][1], TheTime[1][2], TheTime[1][3], TheTime[1][4], TheTime[1][5], 0, 0))
+    rtc.datetime(TheTime[1])
 
     # continuously print the time
     while True:

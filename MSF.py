@@ -49,7 +49,7 @@ def Decode_MSF(ti,sw):
     # remember signal is inverted
     
     # 
-
+    print("HERE")
     # keep reading the signal until we find the minute mark
     while unit != SYNC:
         
@@ -59,7 +59,7 @@ def Decode_MSF(ti,sw):
         # read the signal and add it to the end of the unit buffer
         unit.append(int(ti.value()))
            
-        
+        #print("HERE")
         # we only want to look at a whole second so that we don't fill the memory until it is full
         if len(unit) <= 10:
             # if the buffer has less than 10 items (i.e less than a second), keep adding to the buffer
@@ -71,7 +71,7 @@ def Decode_MSF(ti,sw):
         
 
         
-        print(unit)
+        #print(unit)
     
     # once broken out of the loop above, we must have found the minute marker.
     
